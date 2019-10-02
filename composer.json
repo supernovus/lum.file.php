@@ -16,11 +16,19 @@
     "ext-mbstring": "*",
     "ext-zip": "*"
   },
+  "require-dev":
+  {
+    "lum/lum-test": "^2.1 || dev-master"
+  },
   "autoload":
   {
     "psr-4":
     {
       "Lum\\": "lib"
     }
+  },
+  "scripts":
+  {
+    "test": "lumtest"
   }
 }
