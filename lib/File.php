@@ -40,6 +40,11 @@ class File
    * of the encoding will be used.
    */
   public $encoding;
+
+  /**
+   * The mode to set created directories to.
+   */
+  public $dirMode = 0755;
   
   /**
    * Build a new File object.
@@ -53,10 +58,15 @@ class File
       if (file_exists($file))
       {
         $this->size = filesize($file);
-        $finfo = new finfo(FILEINFO_MIME);
-        $this->type = $finfo->file($file);
+        $this->type = static::detectMimeType($file);
       }
     }
+  }
+
+  public static function detectMimeType ($file)
+  {
+    $finfo = new finfo(FILEINFO_MIME);
+    return $finfo->file($file);
   }
 
   /**
@@ -88,9 +98,12 @@ class File
     if ($file['error'] === UPLOAD_ERR_OK)
     {
       $class = __CLASS__;
+      $mime = ($file['type'] != 'application/octet-stream') 
+        ? $file['type']
+        : static::detectMimeType($file['tmp_name']);
       $upload = new $class();
       $upload->name = $file['name'];
-      $upload->type = $file['type'];
+      $upload->type = $mime;
       $upload->size = $file['size'];
       $upload->file = $file['tmp_name'];
       return $upload;
@@ -222,6 +235,29 @@ class File
   }
 
   /**
+   * See if the current file exists.
+   */
+  public function exists ()
+  {
+    return (isset($this->file) && file_exists($this->file));
+  }
+
+  /**
+   * Delete the file.
+   */
+  public function delete ($recursive=false)
+  {
+    if ($recursive)
+    { // This can remove entire directory trees.
+      return self::rmtree($this->file);
+    }
+    else
+    { // This cannot, and doesn't work on directories.
+      return unlink($this->file);
+    }
+  }
+
+  /**
    * Save the file to the specified folder (with it's original filename.)
    *
    * @param string $folder  The folder we are saving the file to.
@@ -261,8 +297,8 @@ class File
     if (!is_dir($target_dir))
     {
 #      error_log("directory '$target_dir' does not exist?");
-      mkdir($target_dir, 0755, true);
-      chmod($target_dir, 0755);
+      mkdir($target_dir, $this->dirMode, true);
+      chmod($target_dir, $this->dirMode);
     }
     if (copy($this->file, $target))
     {
@@ -291,7 +327,7 @@ class File
   public function copyTo ($target)
   {
     $copy = $this->saveAs($target, false, false);
-     return $copy == $target;
+    return $copy == $target;
   }
 
   /**
@@ -703,13 +739,16 @@ class File
       {
         if (in_array($name, array('.', '..'))) continue;
         $subpath = $path.DIRECTORY_SEPARATOR.$name;
-        self::rmtree($subpath);
+        if (!self::rmtree($subpath))
+        { // Something failed.
+          return false;
+        }
       }
-      rmdir($path);
+      return rmdir($path);
     }
     else
     {
-      unlink($path);
+      return unlink($path);
     }
   }
 
