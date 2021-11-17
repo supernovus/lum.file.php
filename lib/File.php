@@ -5,6 +5,7 @@ use finfo;
 use Lum\File\CSV;
 use Lum\File\Stream;
 use Lum\File\Zip;
+use Lum\File\Permissions;
 
 /**
  * A class representing a file.
@@ -14,6 +15,26 @@ use Lum\File\Zip;
  */
 class File
 {
+  const MODE_RO = 'r';
+  const MODE_RW = 'r+';
+  const MODE_READ = self::MODE_RO;
+  const MODE_READ_WRITE = self::MODE_RW;
+  const MODE_WRITE = 'w';
+  const MODE_WRITE_READ = 'w+';
+  const MODE_APPEND = 'a';
+  const MODE_APPEND_READ = 'a+';
+  const MODE_NEW = 'x';
+  const MODE_NEW_READ = 'x+';
+  const MODE_CREATE = 'c';
+  const MODE_CREATE_READ = 'c+';
+
+  const MODE_BINARY = 'b';       // $flags & Stream::BINARY
+  const MODE_TRANSLATE = 't';    // $flags & Stream::TRANSLATE
+  const MODE_NONBLOCKING = 'n';  // $flags & Stream::NONBLOCKING
+  const MODE_CLOSE_EXEC = 'e';   // $flags & Stream::CLOSE_EXEC
+
+  const UNKNOWN_MIME = 'application/octet-stream';
+
   /**
    * The name of the file.
    */
@@ -45,6 +66,27 @@ class File
    * The mode to set created directories to.
    */
   public $dirMode = 0755;
+
+  /**
+   * The default flags for all Stream related methods.
+   *
+   * Default value: 0 (no flags)
+   */
+  public $streamFlags = 0;
+
+  /**
+   * The default stream mode when using openStream()
+   *
+   * Default value: 'r'
+   */
+  public $openStreamMode = self::MODE_RO;
+
+  /**
+   * The default stream mode when using getStream()
+   *
+   * Default value: null
+   */
+  public $getStreamMode = null;
   
   /**
    * Build a new File object.
@@ -98,7 +140,7 @@ class File
     if ($file['error'] === UPLOAD_ERR_OK)
     {
       $class = __CLASS__;
-      $mime = ($file['type'] != 'application/octet-stream') 
+      $mime = ($file['type'] != self::UNKNOWN_MIME) 
         ? $file['type']
         : static::detectMimeType($file['tmp_name']);
       $upload = new $class();
@@ -481,26 +523,41 @@ class File
   /**
    * Return a PHP stream resource for the file.
    *
-   * @param string $mode  Mode to open the stream (default: 'rb').
-   * @param bool $addBin  Add 'b' to the mode? (default: false).
+   * @param string $mode  Mode to open the stream (default: $openStreamMode)
+   * @param int $flags  Flags to use (default: $streamFlags)
    *
    * @return resource  The PHP stream resource.
    */
-  public function openStream ($mode='rb', $addBin=false)
+  public function openStream ($mode=null, $flags=null)
   {
-    if ($addBin) $mode .= 'b';
+    if (!is_string($mode))
+      $mode = $this->openStreamMode;
+    if (!is_int($flags))
+      $flags = $this->streamFlags;
+
+    if ($flags & Stream::BINARY)
+      $mode .= self::MODE_BINARY;
+    if ($flags & Stream::TRANSLATE)
+      $mode .= self::MODE_TRANSLATE;
+    if ($flags & Stream::NONBLOCKING)
+      $mode .= self::MODE_NONBLOCKING;
+    if ($flags & Flags::CLOSE_EXEC)
+      $mode .= self::MODE_CLOSE_EXEC;
+
     return fopen($this->file, $mode);
   }
 
   /**
    * Return a File\Stream object representing this file.
    *
-   * @param string $mode  Mode to open the stream (default: 'rb').
-   * @param bool $addBin  Add 'b' to the mode? (default: false).
+   * @param string $mode  Mode to open the stream.
+   *                      If null, call to open() must be done manually.
+   *                      Default: $getStreamMode
+   * @param int $flags    Flags to add (default $streamFlags)
    *
    * @return Lum\File\Stream
    */
-  public function getStream ($mode='rb', $addBin=false)
+  public function getStream ($mode=null, $addBin=null)
   {
     return new Stream($this, $mode, $addBin);
   }

@@ -7,6 +7,11 @@ namespace Lum\File;
  */
 class Stream
 {
+  const BINARY      = 1; // Add 'b' which is unnecessary on modern systems.
+  const TRANSLATE   = 2; // Add 't' which is unrecommended.
+  const NONBLOCKING = 4; // Add 'n' which is undocumented, YMMV.
+  const CLOSE_EXEC  = 8; // Add 'e' which is not supported on all platforms.
+
   /**
    * The File object associated with this File\Stream object.
    */
@@ -31,15 +36,15 @@ class Stream
    * Create a new File\Stream object with the given File object.
    *
    * @param File  $file  The File object for this stream.
-   * @param string $mode  If non-null, we call open() with this mode.
-   * @param bool $addBin  Passed to open() if $mode was set (default: false)
+   * @param string $mode  If non-null, call open($mode); Default: null
+   * @param int $flags Passed to open() if $mode was set. Default: null
    */
-  public function __construct (\Lum\File $file, $mode=null, $addBin=false)
+  public function __construct (\Lum\File $file, $mode=null, $flags=null)
   {
     $this->file = $file;
     if (isset($mode))
     {
-      $this->open($mode, $addBin);
+      $this->open($mode, $flags);
     }
   }
 
@@ -66,9 +71,22 @@ class Stream
    * Uses the File::openStream() method to actually open the stream.
    *
    * @param string  $mode  The mode to open the stream (e.g. 'r' or 'w')
-   * @param bool  $addBin  Add 'b' to the mode? (default: false)
+   *                       Use null for File defaults. Default: null
+   *
+   * @param int|bool  $flags  Flags passed to File::openStream()
+   *                          Default: null (which uses File defaults.)
+   *
+   *  Stream::BINARY      = Use binary mode.
+   *  Stream::TRANSLATE   = Use translate mode. 
+   *  Stream::NONBLOCKING = Use non-blocking mode.
+   *  Stream::CLOSE_EXEC  = Use close-exec mode.
+   *
+   *  Binary mode and translate mode are mutually exclusive.
+   *  Non-blocking mode is undocumented and does not work on all platforms.
+   *  Close-exec mode is not available on all platforms.
+   *
    */
-  public function open ($mode, $addBin=false)
+  public function open ($mode=null, $flags=null)
   {
     if ($this->open)
     { // Close the open stream.
@@ -77,7 +95,7 @@ class Stream
         return false;
       }
     }
-    $this->stream = $file->openStream($mode, $addBin);
+    $this->stream = $this->file->openStream($mode, $flags);
     $this->open = true;
     return true;
   }
@@ -102,10 +120,10 @@ class Stream
    *
    * @param mixed $data  Data to write to stream.
    */
-  public function write ($data)
+  public function write ($data, $length=null)
   {
     if (!$this->open) { return null; }
-    $bytes = fwrite($this->stream, $data);
+    $bytes = fwrite($this->stream, $data, $length);
     if ($bytes !== false)
     {
       $this->changed = true;
