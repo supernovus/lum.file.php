@@ -560,7 +560,7 @@ class File
       $mode .= self::MODE_TRANSLATE;
     if ($flags & Stream::NONBLOCKING)
       $mode .= self::MODE_NONBLOCKING;
-    if ($flags & Flags::CLOSE_EXEC)
+    if ($flags & Stream::CLOSE_EXEC)
       $mode .= self::MODE_CLOSE_EXEC;
 
     return fopen($this->file, $mode);
