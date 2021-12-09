@@ -32,7 +32,40 @@ $mod_tests =
   ['-x', 0644, 0755, false, '-rw-r--r--'],
 ];
 
-$testCount = (count($ten_tests)*2)+(count($mod_tests)*2);
+$has_haves =
+[
+  'drwxr-x---',
+  '-r--------',
+  '-rw-rw-r--',
+  '-r-xr-xr-x',
+  '---S--S--T',
+  '---s--s--t',
+  '---x--S--t',
+];
+
+$has_wants =
+[
+  '+r'              => [false, false, true,  true,  false, false, false],
+  'u+r'             => [true,  true,  true,  true,  false, false, false],
+  'g+r'             => [true,  false, true,  true,  false, false, false],
+  'o+r'             => [false, false, true,  true,  false, false, false],
+  'u+w'             => [true,  false, true,  false, false, false, false],
+  'g+w'             => [false, false, true,  false, false, false, false],
+  'o+w'             => [false, false, false, false, false, false, false],
+  'u+x'             => [true,  false, false, true,  false, true,  true],
+  'g+x'             => [true,  false, false, true,  false, true,  false],
+  'o+x'             => [false, false, false, true,  false, true,  true],
+  '---S------'      => [false, false, false, false, true,  true,  false],
+  '------S---'      => [false, false, false, false, true,  true,  true],
+  '---------T'      => [false, false, false, false, true,  true,  true],
+  '---s------'      => [false, false, false, false, false, true,  false],
+  '---s--s--t'      => [false, false, false, false, false, true,  false],
+];
+
+$testCount = 
+  (count($ten_tests)*2)
+  + (count($mod_tests)*2)
+  + (count($has_haves)*count($has_wants));
 
 $t->plan($testCount);
 
@@ -52,6 +85,15 @@ foreach ($mod_tests as $mod_test)
   $t->is(Permissions::parse($string, $startmode), $wantmode, "parsed '$string'");
 }
 
+foreach ($has_haves as $h => $have)
+{
+  foreach ($has_wants as $want => $expected)
+  {
+    $t->is(Permissions::has($have, $want), $expected[$h], "$have has $want");
+  }
+}
+
 echo $t->tap();
+
 return $t;
 

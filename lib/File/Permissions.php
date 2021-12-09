@@ -7,6 +7,25 @@ namespace Lum\File;
  */
 class Permissions
 {
+  // Handle error messages.
+  protected static function err ($msg, $opts=null)
+  {
+    if (is_array($opts))
+    { // Options were passed.
+      if (isset($opts['no_errors']) && $opts['no_errors'])
+      { // The 'no_errors' option means we won't report errors at all.
+        return;
+      }
+      if (isset($opts['fatal']) && $opts['fatal'])
+      { // The 'fatal' option means errors throw exceptions.
+        throw new \Exception($msg);
+      }
+    }
+
+    // If we reached here, log the error.
+    error_log($msg);
+  }
+
   // Handle new and old option types.
   protected static function opts($opts, $isDir=null)
   {
@@ -31,8 +50,26 @@ class Permissions
     return $opts;
   }
 
+  // Get character options.
+  protected static function char_opt($opts, $opt, $def)
+  {
+    if (!is_string($def) || strlen($def) < 1) $def = '!'; // Invalid default.
+    $char = 
+      (isset($opts[$opt]) 
+      && is_string($opts[$opt]) 
+      && strlen($opts[$opt]) > 0) 
+      ? $opts[$opt] 
+      : $def;
+    return $char[0]; // Make sure we're returning only the first character.
+  }
+
   protected static function type_char($opts, $inmode=null)
   {
+    $fc = self::char_opt($opts, 'file_char', '-');
+    $wc = self::char_opt($opts, 'what_char', '?');
+    $uf = isset($opts['none_file']) ? $opts['none_file'] : false;
+    $uc = $uf ? $fc : $wc;
+
     $intype = isset($opts['inType']) ? $opts['inType'] : null;
 
     if (is_string($intype))
@@ -44,20 +81,15 @@ class Permissions
       }
       elseif ($len < 1)
       { // It's less than one character, that's not valid.
-        throw new Exception("inType string must be 1 character long");
+        self::err('inType string must be 1 character', $opts);
+        return $uc;
       }
       else
       { // It's more than 1 character, return just the first character.
         return $intype[0];
       }
     }
-
-    $fc = isset($opts['file_char']) ? $opts['file_char'] : '-';
-    $wc = isset($opts['what_char']) ? $opts['what_char'] : '?';
-    $uf = isset($opts['none_file']) ? $opts['none_file'] : false;
-    $uc = $uf ? $fc : $wc;
-
-    if (is_bool($intype))
+    elseif (is_bool($intype))
     { // Old school boolean type parameter.
       if ($intype) return 'd'; // true is directory.
       return $fc;              // false is regular file.
@@ -75,10 +107,13 @@ class Permissions
     {
       if (is_string($inmode))
       { // It's a string and it's not numeric, let's try parsing it.
-        $inmode = static::parse($inmode, $opts);
+        $inmode = self::parse($inmode, $opts);
       }
       else
       { // It's not a mode we can parse.
+        self::err('inMode was not a supported value: '
+          . json_encode($inmode), $opts);
+
         return $uc;
       }
     }
@@ -122,21 +157,21 @@ class Permissions
    * @param array $opts      Extra options that are used for different things.
    *
    *  'addType'   (bool)  If true, add the filetype bits to the returned value.
-   *                      Default is false if 'inType' is null, true otherwise.
+   *                      Default is true if 'inType' is set to a string,
+   *                      and false otherwise.
    *
    *  'initMode'  (int)   The initial mode value before we add the properties
    *                      from the parsed string. Default: 0
    *
    *  See the encode() and convert_mod() methods as well, as any options
-   *  supported for them may be passed here as well. The 'inType' option used
-   *  by encode() specifically 
+   *  supported for them may be passed here as well. 
    *
    * @return int   The integer mode value (optionally with the type bits set.)
    *
    * NOTE: If the string is not 10 characters long exactly, or contains
    *       any of the letters u, g, a, or o, it will be converted using the
-   *       convert_mod() function. This is the only time the 'mode' and 'type'
-   *       options are used.
+   *       convert_mod() function. This is the only time the 'inMode' and
+   *       'inType' options are used.
    *
    * NOTE 2: If the $opts parameter is passed an integer, it will be set
    *         as the 'mode' option for backwards compatibility with older
@@ -144,14 +179,30 @@ class Permissions
    */
   static function parse ($string, $opts=[])
   {
+    $mode = isset($opts['initMode']) ? intval($opts['initMode']) : 0;
+
+    if (is_int($string))
+    { // It's already an integer, no parsing needed.
+      return $string;
+    }
+    elseif (is_numeric($string))
+    { // It's a numeric string, or maybe a float. Make it into an int.
+      return intval($string);
+    }
+    elseif (!is_string($string))
+    { // It's not a valid value.
+      self::err('invalid string passed to parse: '
+        . json_encode($string), $opts);
+      // Assume no permissions at all.
+      return $mode;
+    }
+
     $opts = self::opts($opts);
 
     if (strlen($string) != 10 || preg_match('/[ugao]+/', $string))
     { // Pass it off onto parse_mod()
-      $string = static::convert_mod($string, $opts);
+      $string = self::convert_mod($string, $opts);
     }
-
-    $mode = isset($opts['initMode']) ? intval($opts['initMode']) : 0;
 
     if ($string[1] == 'r') $mode += 0400;
     if ($string[2] == 'w') $mode += 0200;
@@ -180,7 +231,7 @@ class Permissions
       $addType = isset($opts['inType']);
     }
 
-    $fc = isset($opts['file_char']) ? $opts['file_char'] : '-';
+    $fc = self::char_opt($opts, 'file_char', '-');
 
     if ($addType)
     { // Add a filetype bit for any known filetypes.
@@ -214,16 +265,44 @@ class Permissions
    *
    *    If it's a string like 'd', '-', 'l', it will be set as the first 
    *    character of the string. This allows for the maximum flexibility
-   *    when 
+   *    when we already know the file type.
    *
    *    If it's boolean false, we use '-'. If it's boolean true, we use 'd'.
    *
-   *    If it's null (the default), we will check for 
+   *    If it's null (the default), we will check for known type flags in
+   *    the $int itself (assuming an extended file mode value.)
    *
    * @return str  The permissions string.
    */
   static function encode ($int, $opts=[])
   {
+    if (is_string($int))
+    { // A string was passed instead of an integer.
+      if (is_numeric($int))
+      { // It's a numeric string, make it into an int.
+        $int = intval($int);
+      }
+      elseif (strlen($int) == 10 && !preg_match('/[ugao]+/', $int))
+      { // It's already a 10 character string, and has no UGAO characters.
+        return $int;
+      }
+      else
+      { // Assume it's a UGAO string and use convert_mod() on it.
+        return self::convert_mod($int, $opts);
+      }
+    }
+    elseif (is_float($int))
+    { // Floating point, make it into an integer.
+      $int = intval($int);
+    }
+    elseif (!is_int($int))
+    { // Not an integer, that's not valid.
+      self::err('invalid value passed to encode: '
+        . json_encode($int), $opts);
+      // Assume no permissions at all.
+      $int = 0;
+    }
+
     $opts = self::opts($opts);
 
     $string = self::type_char($opts, $int);
@@ -283,6 +362,50 @@ class Permissions
   }
 
   /**
+   * Compare two modes, and see if the first mode has AT LEAST the
+   * same permissions as the second mode.
+   *
+   * @param str|int $havePerms  The permissions mode we are testing.
+   *                            May be a mode integer value, a full
+   *                            mode string, or a UGOA string.
+   *
+   * @param str|int $wantPerms  The minimum permissions required.
+   *                            May be any of the same types as $havePerms.
+   *
+   * @param array $opts         Reserved for future use.
+   *
+   * @return bool  Does $havePerms have all of the $minPerms?
+   */
+  static function has ($havePerms, $wantPerms, $opts=[])
+  {
+    $havePerms = self::encode($havePerms, $opts);
+    $wantPerms = self::encode($wantPerms, $opts);
+
+    for ($c=1; $c < 10; $c++)
+    { 
+      $want = $wantPerms[$c];
+      $have = $havePerms[$c];
+      if ($want == '-') continue;     // No want permission, next!
+      if ($have == $want) continue;   // They match exactly, next!
+      if (($c == 3 || $c == 6) 
+        && $have == 's' && ($want == 'x' || $want == 'S'))
+      { // s is both x and S combined
+        continue;
+      }
+      if ($c == 9 && $have == 't' && ($want == 'x' || $want == 'T'))
+      { // t is both x and T combined
+        continue;
+      }
+
+      // If we reached here, none of the above checks passed.
+      return false;
+    }
+
+    // If we reached here, all permissions matched.
+    return true;
+  }
+
+  /**
    * Convert a UGOA string into a 10 character permissions string.
    *
    * @param str   $string  The UGOA string we are parsing.
@@ -312,7 +435,7 @@ class Permissions
 
     if (is_int($inmode))
     {
-      $outstring = static::encode($inmode, $opts);
+      $outstring = self::encode($inmode, $opts);
     }
     elseif (is_string($inmode) && strlen($inmode) == 10)
     {
@@ -320,11 +443,22 @@ class Permissions
     }
     else
     {
-      $isDir = is_bool($old) ? $old 
-        : ( (isset($opts['inType']) && is_bool($opts['inType']))
-        ? $opts['inType'] : false);
+      $fc = self::char_opt($opts, 'file_char', '-');
+      $it = isset($opts['inType'])    ? $opts['inType']    : false;
 
-      $outstring = ($isDir ? 'd' : '-').'---------';
+      if (is_bool($it))
+        $first = $it ? 'd' : $fc;
+      elseif (is_string($it) && strlen($it) > 0)
+        $first = $it[0];
+      else
+        $first = $fc;
+
+      $outstring = $first.'---------';
+    }
+
+    if (trim($instring) === '')
+    { // Nothing further to do here.
+      return $outstring;
     }
 
     $psets = explode(',', $instring);
