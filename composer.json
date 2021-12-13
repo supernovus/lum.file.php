@@ -12,8 +12,7 @@
   ],
   "require":
   {
-    "lum/lum-compat": "^1.0",
-    "ext-mbstring": "*",
+    "lum/lum-compat": "^2.0",
     "ext-zip": "*"
   },
   "require-dev":
@@ -35,7 +34,7 @@
   {
     "branch-alias":
     {
-      "dev-main": "1.x-dev"
+      "dev-main": "2.x-dev"
     }
   }
 }
