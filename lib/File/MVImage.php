@@ -81,6 +81,7 @@ class MVImage
         return $eoi_pos + 2;
       }
     }
+    return null;
   }
 
   /**

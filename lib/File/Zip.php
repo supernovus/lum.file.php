@@ -2,6 +2,8 @@
 
 namespace Lum\File;
 
+use \ZipArchive as ZA;
+
 /**
  * A wrapper around the ZipArchive class that uses custom Exceptions
  * for error handling instead of returning numeric codes.
@@ -22,7 +24,7 @@ class Zip
    */
   public function __construct($file, $mode=null)
   {
-    if (is_object($file) && $file instanceof \ZipArchive)
+    if (is_object($file) && $file instanceof ZA)
     { // A ZipArchive object was passed.
       $this->zipArchive = $opts;
     }
@@ -36,20 +38,20 @@ class Zip
     }
   }
 
-  public static function zip_error ($msg, $code)
+  public static function zip_error (string $msg, int $code): never
   {
     $ns = '\Lum\File';
     $codes =
     [
-      \ZipArchive::ER_EXISTS => "$ns\\ZipFileExistsException",
-      \ZipArchive::ER_INCONS => "$ns\\ZipInconsistencyException",
-      \ZipArchive::ER_INVAL  => "$ns\\ZipInvalidArgumentException",
-      \ZipArchive::ER_MEMORY => "$ns\\ZipMemoryException",
-      \ZipArchive::ER_NOENT  => "$ns\\ZipNoFileException",
-      \ZipArchive::ER_NOZIP  => "$ns\\ZipNotZipException",
-      \ZipArchive::ER_OPEN   => "$ns\\ZipOpenException",
-      \ZipArchive::ER_READ   => "$ns\\ZipReadException",
-      \ZipArchive::ER_SEEK   => "$ns\\ZipSeekException",
+      ZA::ER_EXISTS => "$ns\\ZipFileExistsException",
+      ZA::ER_INCONS => "$ns\\ZipInconsistencyException",
+      ZA::ER_INVAL  => "$ns\\ZipInvalidArgumentException",
+      ZA::ER_MEMORY => "$ns\\ZipMemoryException",
+      ZA::ER_NOENT  => "$ns\\ZipNoFileException",
+      ZA::ER_NOZIP  => "$ns\\ZipNotZipException",
+      ZA::ER_OPEN   => "$ns\\ZipOpenException",
+      ZA::ER_READ   => "$ns\\ZipReadException",
+      ZA::ER_SEEK   => "$ns\\ZipSeekException",
     ];
     if (isset($codes[$code]))
     {
@@ -76,7 +78,7 @@ class Zip
    *
    * This method will always throw an appropriate ZipException on a failure.
    */
-  public static function create (string $filename, bool $overwrite=false)
+  public static function create (string $filename, bool $overwrite=false): ZA
   {
     return static::open($filename, $overwrite);
   }
@@ -92,7 +94,7 @@ class Zip
    *                          If it's boolean false: (CREATE | EXCL);
    *
    *                          If it's null (or any unrecognized value), the
-   *                          default of \ZipArchive::RDONLY will be used if
+   *                          default of ZipArchive::RDONLY will be used if
    *                          supported, otherwise 0 will be used.
    *
    * @param bool $strict=true If true (the default), throw a ZipException on
@@ -106,26 +108,26 @@ class Zip
    *                          the $strict parameter was set to false and an
    *                          error occurred when trying to open the file.
    */
-  public static function open ($filename, $mode=null, $strict=true)
+  public static function open (string $filename, $mode=null, $strict=true): ZA
   {
     if (is_bool($mode))
     { // Boolean modes are various versions of CREATE.
-      $mode = \ZipArchive::CREATE;
+      $mode = ZA::CREATE;
       $mode = $overwrite 
-        ? (\ZipArchive::CREATE | \ZipArchive::OVERWRITE)
-        : (\ZipArchive::CREATE | \ZipArchive::EXCL);
+        ? (ZA::CREATE | ZA::OVERWRITE)
+        : (ZA::CREATE | ZA::EXCL);
       $what = 'create';
     }
     elseif (is_int($mode))
     { // It's a set of mode flags as per the ZipArchive specs.
-      $what = ($mode & \ZipArchive::CREATE) ? 'create' : 'open';
+      $what = ($mode & ZA::CREATE) ? 'create' : 'open';
     }
     else
     { // Anything else we'll assume read-only open.
       $what = 'open';
       if (defined('ZipArchive::RDONLY'))
       { // The RDONLY flag is defined.
-        $mode = \ZipArchive::RDONLY;
+        $mode = ZA::RDONLY;
       }
       else
       { // No RDONLY flag, use the old default of 0 (no flags).
@@ -133,7 +135,7 @@ class Zip
       }
     }
 
-    $zip = new \ZipArchive();
+    $zip = new ZA();
     $res = $zip->open($filename, $mode);
     if ($res !== true)
     {
@@ -159,7 +161,7 @@ class Zip
    * @return array  The list of files. Format depends on $justNames option.
    *
    */
-  public function listFiles($justNames=false)
+  public function listFiles(bool $justNames=false): array
   {
     $list = [];
     for ($i=0; $i < $this->zipArchive->numFiles; $i++)
