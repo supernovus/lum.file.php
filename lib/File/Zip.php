@@ -7,9 +7,18 @@ use \ZipArchive as ZA;
 /**
  * A wrapper around the ZipArchive class that uses custom Exceptions
  * for error handling instead of returning numeric codes.
+ *
+ * Also provides some custom convenience methods that provide additional
+ * functionality not in the standard ZipArchive class.
  */
 class Zip
 {
+  const OVERWRITE = ZA::OVERWRITE;
+  const CREATE    = ZA::CREATE;
+  const RDONLY    = ZA::RDONLY;
+  const EXCL      = ZA::EXCL;
+  const CHECKCONS = ZA::CHECKCONS;
+
   protected $zipArchive; // If using this as a wrapper, the real ZipArchive.
 
   /**
@@ -148,7 +157,6 @@ class Zip
   }
 
   // Now for class instance methods.
-
 
   /**
    * Get a list of files contained in the zip archive.

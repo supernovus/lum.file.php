@@ -117,7 +117,7 @@ class File
    * Default value: null
    */
   public $getStreamMode = null;
-  
+
   /**
    * Build a new File object.
    */
@@ -129,10 +129,23 @@ class File
       $this->name = basename($file);
       if (file_exists($file))
       {
+        if (is_dir($file))
+        {
+          throw new \Exception("Lum\File does not support directories");
+        }
         $this->size = filesize($file);
         $this->type = static::detectMimeType($file);
       }
     }
+  }
+
+  public static function newTempFile(string $root=null, string $prefix='')
+  {
+    if (is_null($root))
+      $root = sys_get_temp_dir();
+
+    $filename = tempnam($root, $prefix);
+    return new static($filename);
   }
 
   public static function detectMimeType ($file)
@@ -169,11 +182,10 @@ class File
   {
     if ($file['error'] === UPLOAD_ERR_OK)
     {
-      $class = __CLASS__;
       $mime = ($file['type'] != self::UNKNOWN_MIME) 
         ? $file['type']
         : static::detectMimeType($file['tmp_name']);
-      $upload = new $class();
+      $upload = new static();
       $upload->name = $file['name'];
       $upload->type = $mime;
       $upload->size = $file['size'];
@@ -793,10 +805,10 @@ class File
 
     $tempdir = static::tempdir(null, $prefix);
 
-    if (is_dir($tempfile))
+    if (is_dir($tempdir))
     {
-      $zipfile->extractTo($tempfile);
-      return $tempfile;
+      $zipfile->extractTo($tempdir);
+      return $tempdir;
     }
   }
 
@@ -939,8 +951,9 @@ class File
    *                                FMT_HEX     = Hex value.
    *                                FMT_BASE64  = Base64 value.
    *
-   *                                If base64 is used, any '=' characters will
-   *                                be stripped from the end of the string.
+   *                                This is actually using a URL-safe variant
+   *                                of Base64 called Safe64. See the
+   *                                `safe64_encode()` method for details.
    *
    *                                You can also set File::$RANDOM_FORMAT to
    *                                one of those constants and it will be used
@@ -994,7 +1007,7 @@ class File
       switch ($format)
       { // Figure out what format we want the random portion to be in.
         case (self::FMT_BASE64):
-          $rand = rtrim(base64_encode($rand), '=');
+          $rand = self::safe64_encode($rand);
           break;
         case (self::FMT_HEX):
           $ran = dechex($rand);
@@ -1014,6 +1027,59 @@ class File
     // If we reached here, the path was created.
     return $path;
   }
+
+  /**
+   * Encode data to Safe64 format.
+   *
+   * This is using the default compact version of Safe64, which:
+   *
+   *   - Convert `/` characters into `_` characters.
+   *   - Convert '+' characters into `-` characters.
+   *   - Strip trailing `=` characters entirely.
+   *
+   * It does not support many options. See the `Lum\Encode\Safe64` library 
+   * in the `lum-encode` package for a more feature-complete implementation.
+   *
+   * @param string $input  The data to encode.
+   * @param bool $base64  (Optional) If `true` the data is already in Base64.
+   *                      If `false` (default) we encode to Base64 first.
+   *
+   * @return string  The Safe64 compact output.
+   */
+  public static function safe64_encode (string $input, bool $base64=false)
+  {
+    if (!$base64)
+      $input = base64_encode($input);
+    return rtrim(strtr($input, '+/', '-_'), '=');
+  }
+
+  /**
+   * Decode a Safe64 string.
+   *
+   * It supports either the compact Safe64 format that `safe64_encode()` uses, 
+   * or the older version which uses `~` characters to replace `=` characters.
+   *
+   * @param string $input  The Safe64-encoded string.
+   * @param bool $base64  (Optional) If `true`, return the Base64 string.
+   *                      If `false` (default) return the fully decoded data.
+   *
+   * @return ?string  The decoded data (format depends on `$base64` option.)
+   *                  Will return `null` if the data was not valid Safe64.
+   *
+   */
+  public static function safe64_decode (string $input, bool $base64=false)
+  {
+    $output = strtr($input, '-_~', '+/=');
+    $output .= substr('===', ((strlen($output)+3)%4));
+
+    if (!$base64)
+    {
+      $output = base64_decode($output, true);
+      if ($output === false) $output = null;
+    }
+
+    return $output;
+  } 
 
 }
 
