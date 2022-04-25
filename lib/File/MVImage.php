@@ -7,13 +7,13 @@ namespace Lum\File;
  */
 class MVImage
 {
+  const TEST_FTYP = 1;
+  const TEST_CTRL = 2;
+  const TEST_OLD  = 4;
+
   const CTRL_CHARS = "\x00\x00\x00\x18";
   const FTYP_HEADER = "\x66\x74\x79\x70";
   const OLD_PRE_CHARS = "\xFF\xD9";
-
-#  const MP_H = "\x6d\x70";
-#  const ISO_H = "\x69\x73\x6f";
-#  
 
   // If we want to be strict, we could look for only official ftyp headers:
   // https://www.ftyps.com/
@@ -27,27 +27,24 @@ class MVImage
    */
   public static function fromFile (\Lum\File $file)
   {
-    $mvData = $file->getContents(true);
-    return new MVImage($mvData);
-  }
-
-  /**
-   * Create a new MVImage instance from a path.
-   */
-  public static function fromPath ($path)
-  {
-    if (file_exists($path) && is_file($path))
+    if ($file->exists())
     {
-      $size = filesize($path);
-      $handle = fopen($path, 'rb');
-      $mvData = fread($handle, $size);
-      fclose($handle);
+      $mvData = $file->getContents(true);
       return new MVImage($mvData);
     }
     else
     {
-      throw new \Exception("No such file");
+      throw new \Exception("File not found");
     }
+  }
+
+  /**
+   * Create a new MVImage instance from a file path.
+   */
+  public static function fromPath (string $path)
+  {
+    $file = new \Lum\File($path);
+    return static::fromFile($file);
   }
 
   /**
@@ -63,22 +60,39 @@ class MVImage
    *
    * Returns null if the data has no MV offset.
    */
-  public function getOffset ()
+  public function getOffset (int $tests=self::TEST_FTYP)
   {
     if (isset($this->mvData) && is_string($this->mvData))
     {
-      // Try the control characters and 'ftyp' declaration. 
-      $eoi_pos = strpos($this->mvData, self::CTRL_CHARS.self::FTYP_HEADER);
-      if ($eoi_pos !== false)
-      { 
-        return $eoi_pos;
+      if ($tests <= 0) $tests = self::TEST_FTYP;
+
+      if ($tests & self::TEST_CTRL)
+      {
+        // Try the control characters and 'ftyp' declaration. 
+        $eoi_pos = strpos($this->mvData, self::CTRL_CHARS.self::FTYP_HEADER);
+        if ($eoi_pos !== false)
+        { 
+          return $eoi_pos;
+        }
       }
 
-      // Try a slightly different set of control characters.
-      $eoi_pos = strpos($this->mvData, self::OLD_PRE_CHARS.self::CTRL_CHARS);
-      if ($eoi_pos !== false)
+      if ($tests & self::TEST_OLD)
       {
-        return $eoi_pos + 2;
+        // Try a slightly different set of control characters.
+        $eoi_pos = strpos($this->mvData, self::OLD_PRE_CHARS.self::CTRL_CHARS);
+        if ($eoi_pos !== false)
+        { // The POS + 2 prefix characters.
+          return $eoi_pos + 2;
+        }
+      }
+
+      if ($tests & self::TEST_FTYP)
+      {
+        $eoi_pos = strpos($this->mvData, self::FTYP_HEADER);
+        if ($eoi_pos !== false)
+        { // The POS - 4 header characters.
+          return $eoi_pos - 4;
+        }
       }
     }
     return null;
@@ -89,9 +103,9 @@ class MVImage
    *
    * Returns null if the data has no MV offset.
    */
-  public function getJPEG ()
+  public function getJPEG (int $tests=self::TEST_FTYP)
   {
-    $offset = $this->getOffset();
+    $offset = $this->getOffset($tests);
     if (isset($offset))
     {
       return substr($this->mvData, 0, $offset);
@@ -103,9 +117,9 @@ class MVImage
    *
    * Returns null if the data has no MV offset.
    */
-  public function getMPEG ()
+  public function getMPEG (int $tests=self::TEST_FTYP)
   {
-    $offset = $this->getOffset();
+    $offset = $this->getOffset($tests);
     if (isset($offset))
     {
       return substr($this->mvData, $offset);
