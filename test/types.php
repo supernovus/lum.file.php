@@ -3,15 +3,22 @@
 namespace Test;
 
 use \Lum\File\Types as FT;
+use Lum\File\MIME as MT;
 
 require_once 'vendor/autoload.php';
 
+const NUM_EXTS = 61;
+const NUM_MIME = 76;
+
 $t = new \Lum\Test;
 
-$t->plan(6);
+$t->plan(7);
 
 $c = count(FT::types());
-$t->is($c, 19, 'correct number of types returned');
+$t->is($c, NUM_EXTS, 'correct number of Types::types() returned');
+
+$c = count(MT::types());
+$t->is($c, NUM_MIME, 'correct number of MIME::types() returned');
 
 $t->is(FT::get('html'), 'text/html', 'get a type via static call');
 
@@ -28,7 +35,7 @@ $t->is($ft->get('xml'), 'text/xml', 'use_text_html() works');
 
 $ft->use_xhtml();
 
-$t->is(FT::get('html'), FT::app_xhtml, 'use_xhtml() works');
+$t->is(FT::get('html'), MT::APP_XHTML, 'use_xhtml() works');
 
 echo $t->tap();
 return $t;

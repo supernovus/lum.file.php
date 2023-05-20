@@ -10,48 +10,69 @@ namespace Lum\File;
 
 class Types
 {
-  const mso  = 'application/vnd.openxmlformats-officedocument.';
-
-  const any_text  = 'text/plain';
-
-  const text_xml  = 'text/xml';
-  const app_xml   = 'application/xml';
-
-  const text_js   = 'text/javascript';
-  const app_json  = 'application/json';
-
-  const text_html = 'text/html';
-  const app_xhtml = 'application/xhtml+xml';
-
-  const text_css  = 'text/css';
-
-  const img_jpeg  = 'image/jpeg';
-  const img_png   = 'image/png';
-  const img_svg   = 'image/svg+xml';
-  const img_webp  = 'image/webp';
-  const img_gif   = 'image/gif';
-
   protected static $types =
   [ // A list of types.
-    'xml'   => self::app_xml,
-    'json'  => self::app_json,
-    'html'  => self::text_html,
-    'xhtml' => self::app_xhtml,
-    'js'    => self::text_js,
-    'css'   => self::text_css,
-    'jpg'   => self::img_jpeg,
-    'png'   => self::img_png,
-    'svg'   => self::img_svg,
-    'webp'  => self::img_webp,
-    'gif'   => self::img_gif,
-    'xlsx'  => self::mso . 'spreadsheetml.sheet',
-    'xltx'  => self::mso . 'spreedsheetml.template',
-    'potx'  => self::mso . 'presentationml.template',
-    'ppsx'  => self::mso . 'presentationml.slideshow',
-    'pptx'  => self::mso . 'presentationml.presentation',
-    'sldx'  => self::mso . 'presentationml.slide',
-    'docx'  => self::mso . 'wordprocessingml.document',
-    'dotx'  => self::mso . 'wordprocessingml.template',
+    'bin'   => MIME::MISC,
+    'txt'   => MIME::TEXT,
+    'xml'   => MIME::APP_XML,
+    'json'  => MIME::APP_JSON,
+    'html'  => MIME::TEXT_HTML,
+    'htm'   => MIME::TEXT_HTML,
+    'xhtml' => MIME::APP_XHTML,
+    'js'    => MIME::TEXT_JS,
+    'css'   => MIME::TEXT_CSS,
+    'jpg'   => MIME::IMG_JPEG,
+    'jpeg'  => MIME::IMG_JPEG,
+    'png'   => MIME::IMG_PNG,
+    'svg'   => MIME::IMG_SVG,
+    'webp'  => MIME::IMG_WEBP,
+    'gif'   => MIME::IMG_GIF,
+    'bmp'   => MIME::IMG_BMP,
+    'tif'   => MIME::IMG_TIFF,
+    'tiff'  => MIME::IMG_TIFF,
+    'heif'  => MIME::IMG_HEIF,
+    'heic'  => MIME::IMG_HEIC,
+    'avi'   => MIME::VID_AVI,
+    'mp4'   => MIME::VID_MP4,
+    'mpg'   => MIME::VID_MPEG,
+    'mpeg'  => MIME::VID_MPEG,
+    'webm'  => MIME::VID_WEBM,
+    'wmv'   => MIME::VID_WMV,
+    'qt'    => MIME::VID_QT,
+    'mov'   => MIME::VID_QT,
+    '3gp'   => MIME::VID_3GP,
+    '3g2'   => MIME::VID_3G2,
+    'zip'   => MIME::AR_ZIP,
+    'bz2'   => MIME::AR_BZ2,
+    'gz'    => MIME::AR_GZ,
+    'tar'   => MIME::AR_TAR,
+    'rar'   => MIME::AR_RAR,
+    '7z'    => MIME::AR_7Z,
+    'jar'   => MIME::AR_JAR,
+    'csv'   => MIME::DOC_CSV,
+    'rtf'   => MIME::DOC_RTF,
+    'epub'  => MIME::DOC_EPUB,
+    'ics'   => MIME::DOC_ICS,
+    'pdf'   => MIME::DOC_PDF,
+    'doc'   => MIME::MS_DOC,
+    'ppt'   => MIME::MS_PPT,
+    'vsd'   => MIME::MS_VSD,
+    'xls'   => MIME::MS_XLS,
+    'xlsx'  => MIME::MS_XLSX,
+    'xltx'  => MIME::MS_XLTX,
+    'potx'  => MIME::MS_POTX,
+    'ppsx'  => MIME::MS_PPSX,
+    'pptx'  => MIME::MS_PPTX,
+    'sldx'  => MIME::MS_SLDX,
+    'docx'  => MIME::MS_DOCX,
+    'dotx'  => MIME::MS_DOTX,
+    'odt'   => MIME::ODF_ODT,
+    'ods'   => MIME::ODF_ODS,
+    'odp'   => MIME::ODF_ODP,
+    'otf'   => MIME::FONT_OTF,
+    'tff'   => MIME::FONT_TTF,
+    'woff'  => MIME::FONT_WOFF,
+    'woff2' => MIME::FONT_WOFF2,
   ];
 
   public static function types ()
@@ -72,42 +93,49 @@ class Types
 
   public static function use_text_xml()
   {
-    static::set('xml', self::text_xml, true);
+    static::set('xml', MIME::TEXT_XML, true);
   }
 
   public static function use_app_xml()
   {
-    static::set('xml', self::app_xml, true);
+    static::set('xml', MIME::XML, true);
   }
 
-  public static function use_text_json()
+  public static function use_text_js()
   {
-    static::set('json', self::text_js, true);
+    static::set('js', MIME::JS, true);
   }
 
-  public static function use_app_json()
+  public static function use_app_js()
   {
-    static::set('json', self::app_json, true);
+    static::set('js', MIME::APP_JS, true);
   }
 
-  protected static function html_ext($x=false)
+  protected static function html_ext($x)
   {
-    return ($x ? 'xhtml' : 'html');
+    if (is_string($x) && strlen($x) >= 3) 
+    { // An extension was passed.  
+      return $x;
+    }
+    else
+    { // true for xhtml, false for html.
+      return ($x ? 'xhtml' : 'html');
+    }
   }
 
   public static function use_text_html($x=false)
   {
-    static::set(static::html_ext($x), self::text_html, true);
+    static::set(static::html_ext($x), MIME::TEXT_HTML, true);
   }
 
   public static function use_xhtml($x=false)
   {
-    static::set(static::html_ext($x),  self::app_xhtml, true);
+    static::set(static::html_ext($x),  MIME::APP_XHTML, true);
   }
 
   public static function use_xml_html($x=false)
   {
-    static::set(static::html_ext($x), self::app_xml, true);
+    static::set(static::html_ext($x), MIME::APP_XML, true);
   }
 
   /**

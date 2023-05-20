@@ -13,6 +13,7 @@
   "require":
   {
     "lum/lum-compat": "^2.0",
+    "lum/lum-meta": "^1.1.0",
     "ext-zip": "*"
   },
   "require-dev":
