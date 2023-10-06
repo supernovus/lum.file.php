@@ -121,8 +121,7 @@ class Zip
   {
     if (is_bool($mode))
     { // Boolean modes are various versions of CREATE.
-      $mode = ZA::CREATE;
-      $mode = $overwrite 
+      $mode = $mode 
         ? (ZA::CREATE | ZA::OVERWRITE)
         : (ZA::CREATE | ZA::EXCL);
       $what = 'create';
